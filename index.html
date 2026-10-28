@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Rail Attendance Dashboard — Eastern Railway (BDC)</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: #0a1f38;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    #railAppFrame {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      border: 0;
+      display: block;
+      background: #f1f5f9;
+    }
+  </style>
+</head>
+<body>
+  <iframe
+    id="railAppFrame"
+    title="Rail Attendance Dashboard"
+    allow="clipboard-read; clipboard-write"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation-by-user-activation">
+  </iframe>
+
+  <script>
+    // PASTE YOUR GOOGLE APPS SCRIPT /exec URL HERE:
+    var GAS_WEB_APP_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID_HERE/exec";
+
+    (function () {
+      var STORAGE_KEY = "railGhPagesSessionToken";
+      var PAGE_KEY = "railGhPagesLastPage";
+      var frame = document.getElementById("railAppFrame");
+
+      function getSavedToken() {
+        try { return localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY) || ""; }
+        catch (e) { return ""; }
+      }
+
+      function setSavedToken(tok) {
+        try {
+          if (tok) {
+            localStorage.setItem(STORAGE_KEY, tok);
+            sessionStorage.setItem(STORAGE_KEY, tok);
+          } else {
+            localStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(PAGE_KEY);
+          }
+        } catch (e) {}
+      }
+
+      function buildInitialSrc() {
+        var tok = getSavedToken();
+        var lastPage = "";
+        try { lastPage = sessionStorage.getItem(PAGE_KEY) || ""; } catch (e) {}
+        var page = (tok && lastPage && lastPage !== "index") ? lastPage : (tok ? "dashboard" : "index");
+        var url = GAS_WEB_APP_URL + "?page=" + encodeURIComponent(page);
+        if (tok && page !== "index") {
+          url += "&st=" + encodeURIComponent(tok);
+        }
+        return url;
+      }
+
+      window.addEventListener("message", function (ev) {
+        var data = ev && ev.data;
+        if (!data || typeof data !== "object") return;
+
+        if (data.type === "RAIL_IFRAME_PING") {
+          try {
+            frame.contentWindow.postMessage({ type: "RAIL_HOST_READY" }, "*");
+            var tok = getSavedToken();
+            if (tok) {
+              frame.contentWindow.postMessage({ type: "RAIL_RESTORE_TOKEN", token: tok }, "*");
+            }
+          } catch (e) {}
+        } else if (data.type === "RAIL_SESSION_SET" && data.token) {
+          setSavedToken(data.token);
+        } else if (data.type === "RAIL_SESSION_CLEAR") {
+          setSavedToken("");
+        } else if (data.type === "RAIL_NAVIGATE" && data.url) {
+          try { frame.contentWindow.postMessage({ type: "RAIL_HOST_READY" }, "*"); } catch (e) {}
+          var pageMatch = String(data.url).match(/[?&]page=([^&#]+)/);
+          if (pageMatch) {
+            try { sessionStorage.setItem(PAGE_KEY, decodeURIComponent(pageMatch[1])); } catch (e) {}
+          }
+          var qIdx = String(data.url).indexOf("?");
+          var queryPart = qIdx !== -1 ? String(data.url).slice(qIdx) : "";
+          frame.src = GAS_WEB_APP_URL + queryPart;
+        }
+      });
+
+      frame.src = buildInitialSrc();
+    })();
+  </script>
+</body>
+</html>
