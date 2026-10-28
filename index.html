@@ -3,7 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="theme-color" content="#0a1f38">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rail Attendance">
   <title>Rail Attendance Dashboard — Eastern Railway (BDC)</title>
+
+  <!-- Self-Contained Railway Locomotive + Attendance Checkmark SVG Favicon -->
+  <link
+    id="railFavicon"
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%230a1f38'/%3E%3Cstop offset='100%25' stop-color='%231a528a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23bg)'/%3E%3Crect x='3' y='3' width='58' height='58' rx='13' fill='none' stroke='%23ffffff' stroke-opacity='0.16' stroke-width='1.5'/%3E%3Cpath d='M20 13h24c4.4 0 8 3.6 8 8v17c0 4.4-3.6 8-8 8l4 7h-5l-4-7H25l-4 7h-5l4-7c-4.4 0-8-3.6-8-8V21c0-4.4 3.6-8 8-8z' fill='%23f59e0b'/%3E%3Crect x='17' y='19' width='30' height='11' rx='3' fill='%230a1f38'/%3E%3Cline x1='32' y1='19' x2='32' y2='30' stroke='%23f59e0b' stroke-width='2'/%3E%3Ccircle cx='22' cy='38' r='3' fill='%230a1f38'/%3E%3Ccircle cx='42' cy='38' r='3' fill='%230a1f38'/%3E%3Ccircle cx='49' cy='49' r='11' fill='%2316a34a' stroke='%230a1f38' stroke-width='2.5'/%3E%3Cpath d='M44.2 49.2l3.1 3.1 6.5-6.5' fill='none' stroke='%23ffffff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link
+    rel="shortcut icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230a1f38'/%3E%3Cpath d='M20 13h24c4.4 0 8 3.6 8 8v17c0 4.4-3.6 8-8 8l4 7h-5l-4-7H25l-4 7h-5l4-7c-4.4 0-8-3.6-8-8V21c0-4.4 3.6-8 8-8z' fill='%23f59e0b'/%3E%3Crect x='17' y='19' width='30' height='11' rx='3' fill='%230a1f38'/%3E%3Ccircle cx='22' cy='38' r='3' fill='%230a1f38'/%3E%3Ccircle cx='42' cy='38' r='3' fill='%230a1f38'/%3E%3Ccircle cx='49' cy='49' r='11' fill='%2316a34a' stroke='%230a1f38' stroke-width='2.5'/%3E%3Cpath d='M44.2 49.2l3.1 3.1 6.5-6.5' fill='none' stroke='%23ffffff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link id="railAppleTouchIcon" rel="apple-touch-icon" href="">
+
   <style>
     html, body {
       margin: 0;
@@ -29,27 +45,62 @@
   <iframe
     id="railAppFrame"
     title="Rail Attendance Dashboard"
-    allow="clipboard-read; clipboard-write"
-    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation-by-user-activation">
+    allow="clipboard-read; clipboard-write; fullscreen">
   </iframe>
 
   <script>
+    // =========================================================================
     // PASTE YOUR GOOGLE APPS SCRIPT /exec URL HERE:
-    var GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzF-jICL_mGO4oTKzuEMQGqQRBRblV-inZY640F0bmotaeeyWOoUBInNfUODxXXGrORMw/exec";
+    // =========================================================================
+    var GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3034XigfyqaXJZpEQCjF32cFAbdRby9_HERy7YM3d99uyP0dT-cTLx3xT8CJFhbW6Ag/exec";
+
+    // Automatically render a crisp 180x180 PNG Apple Touch Icon from the SVG favicon for mobile home screens
+    (function initTouchIcon() {
+      try {
+        var fav = document.getElementById("railFavicon");
+        var touchLink = document.getElementById("railAppleTouchIcon");
+        if (!fav || !touchLink) return;
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var c = document.createElement("canvas");
+            c.width = 180;
+            c.height = 180;
+            var ctx = c.getContext("2d");
+            ctx.drawImage(img, 0, 0, 180, 180);
+            touchLink.href = c.toDataURL("image/png");
+          } catch (e) {}
+        };
+        img.src = fav.href;
+      } catch (e) {}
+    })();
 
     (function () {
       var STORAGE_KEY = "railGhPagesSessionToken";
       var PAGE_KEY = "railGhPagesLastPage";
       var frame = document.getElementById("railAppFrame");
 
+      function isValidToken(val) {
+        return typeof val === "string" && /^[A-Za-z0-9_\-:]{10,200}$/.test(val);
+      }
+
       function getSavedToken() {
-        try { return localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY) || ""; }
-        catch (e) { return ""; }
+        try {
+          var tok = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY) || "";
+          if (tok && !isValidToken(tok)) {
+            localStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(STORAGE_KEY);
+            return "";
+          }
+          return tok;
+        } catch (e) {
+          return "";
+        }
       }
 
       function setSavedToken(tok) {
         try {
-          if (tok) {
+          if (isValidToken(tok)) {
             localStorage.setItem(STORAGE_KEY, tok);
             sessionStorage.setItem(STORAGE_KEY, tok);
           } else {
@@ -64,7 +115,9 @@
         var tok = getSavedToken();
         var lastPage = "";
         try { lastPage = sessionStorage.getItem(PAGE_KEY) || ""; } catch (e) {}
-        var page = (tok && lastPage && lastPage !== "index") ? lastPage : (tok ? "dashboard" : "index");
+        var page = (tok && lastPage && lastPage !== "index" && lastPage !== "login" && lastPage !== "logout")
+          ? lastPage
+          : (tok ? "dashboard" : "index");
         var url = GAS_WEB_APP_URL + "?page=" + encodeURIComponent(page);
         if (tok && page !== "index") {
           url += "&st=" + encodeURIComponent(tok);
@@ -72,30 +125,53 @@
         return url;
       }
 
+      // Listen for events from app-shell.html inside the nested Apps Script iframe
       window.addEventListener("message", function (ev) {
         var data = ev && ev.data;
         if (!data || typeof data !== "object") return;
 
+        // Reply directly to ev.source (the inner userCodeAppPanel frame)
         if (data.type === "RAIL_IFRAME_PING") {
           try {
-            frame.contentWindow.postMessage({ type: "RAIL_HOST_READY" }, "*");
-            var tok = getSavedToken();
-            if (tok) {
-              frame.contentWindow.postMessage({ type: "RAIL_RESTORE_TOKEN", token: tok }, "*");
+            if (ev.source) {
+              ev.source.postMessage({ type: "RAIL_HOST_READY" }, "*");
+              var savedTok = getSavedToken();
+              if (savedTok) {
+                ev.source.postMessage({ type: "RAIL_RESTORE_TOKEN", token: savedTok }, "*");
+              }
             }
           } catch (e) {}
-        } else if (data.type === "RAIL_SESSION_SET" && data.token) {
+        } else if (data.type === "RAIL_SESSION_SET" && isValidToken(data.token)) {
           setSavedToken(data.token);
         } else if (data.type === "RAIL_SESSION_CLEAR") {
           setSavedToken("");
         } else if (data.type === "RAIL_NAVIGATE" && data.url) {
-          try { frame.contentWindow.postMessage({ type: "RAIL_HOST_READY" }, "*"); } catch (e) {}
-          var pageMatch = String(data.url).match(/[?&]page=([^&#]+)/);
-          if (pageMatch) {
-            try { sessionStorage.setItem(PAGE_KEY, decodeURIComponent(pageMatch[1])); } catch (e) {}
+          try {
+            if (ev.source) ev.source.postMessage({ type: "RAIL_HOST_READY" }, "*");
+          } catch (e) {}
+
+          if (isValidToken(data.token)) {
+            setSavedToken(data.token);
           }
-          var qIdx = String(data.url).indexOf("?");
-          var queryPart = qIdx !== -1 ? String(data.url).slice(qIdx) : "";
+
+          var urlStr = String(data.url);
+          var pageMatch = urlStr.match(/[?&]page=([^&#]+)/);
+          var targetPage = pageMatch ? decodeURIComponent(pageMatch[1]) : "dashboard";
+
+          if (targetPage === "index" || targetPage === "login" || targetPage === "logout") {
+            setSavedToken("");
+            frame.src = GAS_WEB_APP_URL + "?page=index";
+            return;
+          }
+
+          try { sessionStorage.setItem(PAGE_KEY, targetPage); } catch (e) {}
+
+          var qIdx = urlStr.indexOf("?");
+          var queryPart = qIdx !== -1 ? urlStr.slice(qIdx) : ("?page=" + encodeURIComponent(targetPage));
+          var activeTok = isValidToken(data.token) ? data.token : getSavedToken();
+          if (activeTok && queryPart.indexOf("st=") === -1) {
+            queryPart += (queryPart.indexOf("?") === -1 ? "?" : "&") + "st=" + encodeURIComponent(activeTok);
+          }
           frame.src = GAS_WEB_APP_URL + queryPart;
         }
       });
